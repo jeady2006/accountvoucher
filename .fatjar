@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Mon Dec 31 13:01:21 CST 2012
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=AccountVoucher.jar
+manifest.mergeall=true
+manifest.mainclass=jing.client.Client
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=
+includes=
