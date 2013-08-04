@@ -33,7 +33,6 @@ public class WBSLoader {
 					continue;
 				}
 				wbsNo = wbsNo.toUpperCase();
-				System.out.println(wbsNo);
 				wbs = new WBS(wbsNo);
 				wbs.setProject(reader.getNextStringFormat());
 				wbs.setProjectDes(reader.getNextStringFormat());

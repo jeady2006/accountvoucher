@@ -66,22 +66,12 @@ public class RuntimeData {
 		soas.clear();
 		while (reader.hasRow()) {
 			reader.nextRow();
-			i = 0;
-			if (reader.getCellType(i) == POIReader.CELL_TYPE_STRING) {
-				s = reader.getStringByIndex(i);
-			} else {
-				s = NumbericUtils.doubleToString(reader.getNumbericByIndex(i));
-			}
+			s = reader.getNextStringFormat();
 			if (s.equals("0") || !s.matches("[0-9]+"))
 				continue;
 			soa = new SOA(s);
-			reader.skipCell(1);
-			if (reader.getNextCellType() == POIReader.CELL_TYPE_STRING) {
-				soa.setName(reader.getNextString());
-			} else {
-				soa.setName(NumbericUtils.doubleToString(reader
-						.getNextNumberic()));
-			}
+			soa.setText(reader.getNextStringFormat());
+			soa.setName(reader.getNextStringFormat());
 			soas.put(s, soa);
 		}
 		reader.destroy();

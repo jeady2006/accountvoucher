@@ -2,7 +2,9 @@ package jing.client.salary;
 
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 import jing.client.ClientMessage;
@@ -13,10 +15,12 @@ import jing.salary.service.SalaryGenerator;
 import jing.salary.service.WIPGenerator;
 import jing.salary.service.impl.AccrualGeneratorImpl;
 import jing.salary.service.impl.BackBillingGeneratorImpl;
+import jing.salary.service.impl.InputVoucherImpl;
 import jing.salary.service.impl.SalaryGeneratorImpl;
 import jing.salary.service.impl.WIPGeneratorImpl;
 import jing.salary.service.listener.BackBillingReplyListener;
 import jing.salary.service.listener.CallListener;
+import jing.util.db.sqlite.SQLiteUtils;
 import jing.util.excel.POIWriter;
 import jing.util.fields.ExcelFields;
 import jing.util.lang.FileUtils;
@@ -24,8 +28,11 @@ import jing.util.lang.StringUtils;
 import jing.util.message.Message;
 import jing.util.message.MessageProvider;
 
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StackLayout;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -102,6 +109,11 @@ public class SalaryMain implements BackBillingReplyListener {
 		releaseBillItem.setText("释放表");
 		releaseBillItem.setImage(new Image(this.parent.getDisplay(),
 				"icon/release.png"));
+		new ToolItem(toolBar, SWT.SEPARATOR);
+		ToolItem inputVoucherItem = new ToolItem(toolBar, SWT.PUSH);
+		inputVoucherItem.setText("录入凭证");
+		inputVoucherItem.setImage(new Image(this.parent.getDisplay(),
+				"icon/release.png"));
 
 		// final Composite subSalaryComp = new Composite(salaryMenu, SWT.NONE);
 		// subSalaryComp.setBackground(new Color(this.parent.getDisplay(), 229,
@@ -132,7 +144,8 @@ public class SalaryMain implements BackBillingReplyListener {
 		monthLabel.setText("请选择月份：");
 		monthLabel.setBackground(whiteColor);
 
-		final Combo monthCombo = new Combo(salaryGroup, SWT.NONE| SWT.READ_ONLY);
+		final Combo monthCombo = new Combo(salaryGroup, SWT.NONE
+				| SWT.READ_ONLY);
 		for (int i = 1; i <= 12; i++) {
 			monthCombo.add(i + "月");
 		}
@@ -145,7 +158,7 @@ public class SalaryMain implements BackBillingReplyListener {
 		prLabel.setText("请选择生成哪个利润中心:");
 		prLabel.setBackground(whiteColor);
 
-		final Combo prCombo = new Combo(salaryGroup, SWT.NONE| SWT.READ_ONLY);
+		final Combo prCombo = new Combo(salaryGroup, SWT.NONE | SWT.READ_ONLY);
 		Set<String> prSet = RuntimeData.getInstance().getPrSet();
 		Iterator<String> it = prSet.iterator();
 		while (it.hasNext()) {
@@ -326,7 +339,8 @@ public class SalaryMain implements BackBillingReplyListener {
 		accrualMonthLabel.setText("请选择月份：");
 		accrualMonthLabel.setBackground(whiteColor);
 
-		final Combo accrualMonthCombo = new Combo(accrualGroup, SWT.NONE| SWT.READ_ONLY);
+		final Combo accrualMonthCombo = new Combo(accrualGroup, SWT.NONE
+				| SWT.READ_ONLY);
 		for (int i = 1; i <= 12; i++) {
 			accrualMonthCombo.add(i + "月");
 		}
@@ -717,6 +731,166 @@ public class SalaryMain implements BackBillingReplyListener {
 		backBillingReplyButton = new Button(backBillingReplyGroup, SWT.NONE);
 		backBillingReplyButton.setText("生成");
 
+		final Group inputVoucherGroup = new Group(formComposite, SWT.NONE);
+		inputVoucherGroup.setText("录入凭证");
+		GridData inputVoucherData = new GridData(GridData.FILL_HORIZONTAL);
+		inputVoucherData.horizontalSpan = 6;
+		inputVoucherGroup.setLayoutData(inputVoucherData);
+		GridLayout inputVoucherLayout = new GridLayout();
+		inputVoucherLayout.numColumns = 9;
+		inputVoucherLayout.verticalSpacing = 10;
+		inputVoucherGroup.setLayout(inputVoucherLayout);
+		inputVoucherGroup.setBackground(whiteColor);
+
+		Label inputVoucherInputDateLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherInputDateLabel.setText("录入日期：");
+		inputVoucherInputDateLabel.setBackground(whiteColor);
+
+		final DateTime inputVoucherInputDate = new DateTime(inputVoucherGroup,
+				SWT.DATE | SWT.BORDER);
+		// GridData inputVoucherGridData = new GridData();
+		// inputVoucherGridData.horizontalSpan = 5;
+		// inputVoucherInputDate.setLayoutData(inputVoucherGridData);
+
+
+		final InputVoucherImpl inputor = new InputVoucherImpl();
+		final Label inputVoucherWbsLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherWbsLabel.setText("WBS表：");
+		inputVoucherWbsLabel.setBackground(whiteColor);
+		final Text inputVoucherWbsFile = new Text(inputVoucherGroup, SWT.BORDER);
+		inputVoucherWbsFile.setEditable(false);
+		GridData inputVoucherWbsFileData = new GridData();
+		inputVoucherWbsFileData.widthHint = 550;
+		inputVoucherWbsFileData.horizontalSpan = 5;
+		inputVoucherWbsFile.setLayoutData(inputVoucherWbsFileData);
+		inputVoucherWbsFile.setBackground(whiteColor);
+
+		Button inputVoucherWbsFileChoose = new Button(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherWbsFileChoose.setText("选择文件");
+		inputVoucherWbsFileChoose.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				FileDialog inputVoucherWbsFileDialog = new FileDialog(
+						accrualGroup.getShell());
+				inputVoucherWbsFileDialog
+						.setFilterNames(ExcelFields.EXCEL_FILTER_NAMES);
+				inputVoucherWbsFileDialog
+						.setFilterExtensions(ExcelFields.EXCEL_FILTER_EXTENSIONS);
+				detailFileName = inputVoucherWbsFileDialog.open();
+				if (detailFileName != null) {
+					inputVoucherWbsFile.setText(detailFileName);
+					inputor.loadWBS(detailFileName);
+				}
+			};
+		});
+
+		final Label inputVoucherSeqenceLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherSeqenceLabel.setText("序号：");
+		inputVoucherSeqenceLabel.setBackground(whiteColor);
+		final Text inputVoucherSeqenceText = new Text(inputVoucherGroup,
+				SWT.BORDER);
+		inputVoucherSeqenceText.setText("1");
+		GridData inputVoucherSeqenceTextData = new GridData();
+		inputVoucherSeqenceTextData.widthHint = 150;
+		inputVoucherSeqenceText.setLayoutData(inputVoucherSeqenceTextData);
+		inputVoucherSeqenceText.setBackground(whiteColor);
+
+		final Label inputVoucherCodeLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherCodeLabel.setText("科目号：");
+		inputVoucherCodeLabel.setBackground(whiteColor);
+		final Text inputVoucherCodeText = new Text(inputVoucherGroup,
+				SWT.BORDER);
+		GridData inputVoucherCodeLabelTextData = new GridData();
+		inputVoucherCodeLabelTextData.widthHint = 150;
+		inputVoucherCodeText.setLayoutData(inputVoucherCodeLabelTextData);
+		inputVoucherCodeText.setBackground(whiteColor);
+
+		final Label inputVoucherWBSTextLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherWBSTextLabel.setText("WBS：");
+		inputVoucherWBSTextLabel.setBackground(whiteColor);
+		final Text inputVoucherWBSText = new Text(inputVoucherGroup, SWT.BORDER);
+		GridData inputVoucherWBSTextData = new GridData();
+		inputVoucherWBSTextData.widthHint = 150;
+		inputVoucherWBSText.setLayoutData(inputVoucherWBSTextData);
+		inputVoucherWBSText.setBackground(whiteColor);
+
+		final Label inputVoucherCCLabel = new Label(inputVoucherGroup, SWT.NONE);
+		inputVoucherCCLabel.setText("CC：");
+		inputVoucherCCLabel.setBackground(whiteColor);
+		final Text inputVoucherCCText = new Text(inputVoucherGroup, SWT.BORDER);
+		GridData inputVoucherCCTextData = new GridData();
+		inputVoucherCCTextData.widthHint = 150;
+		inputVoucherCCTextData.horizontalSpan = 2;
+		inputVoucherCCText.setLayoutData(inputVoucherCCTextData);
+		inputVoucherCCText.setBackground(whiteColor);
+
+		final Label inputVoucherAmountLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherAmountLabel.setText("金额：");
+		inputVoucherAmountLabel.setBackground(whiteColor);
+		final Text inputVoucherAmountText = new Text(inputVoucherGroup,
+				SWT.BORDER);
+		GridData inputVoucherAmountTextData = new GridData();
+		inputVoucherAmountTextData.widthHint = 150;
+		inputVoucherAmountText.setLayoutData(inputVoucherAmountTextData);
+		inputVoucherAmountText.setBackground(whiteColor);
+
+		final Label inputVoucherRefLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherRefLabel.setText("参照：");
+		inputVoucherRefLabel.setBackground(whiteColor);
+		final Text inputVoucherRefText = new Text(inputVoucherGroup, SWT.BORDER);
+		GridData inputVoucherRefTextData = new GridData();
+		inputVoucherRefTextData.widthHint = 150;
+		inputVoucherRefText.setLayoutData(inputVoucherRefTextData);
+		inputVoucherRefText.setBackground(whiteColor);
+
+		final Label inputVoucherMonthLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherMonthLabel.setText("报销日期：");
+		inputVoucherMonthLabel.setBackground(whiteColor);
+		final DateTime inputVoucherDate = new DateTime(inputVoucherGroup,
+				SWT.DATE | SWT.BORDER);
+		// GridData inputVoucherGridData = new GridData();
+		// inputVoucherGridData.horizontalSpan = 5;
+		// inputVoucherDate.setLayoutData(inputVoucherGridData);
+
+		final Label inputVoucherMemberLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherMemberLabel.setText("员工：");
+		inputVoucherMemberLabel.setBackground(whiteColor);
+		final Text inputVoucherMemberText = new Text(inputVoucherGroup,
+				SWT.BORDER);
+		GridData inputVoucherMemberTextData = new GridData();
+		inputVoucherMemberTextData.widthHint = 150;
+		inputVoucherMemberTextData.horizontalSpan = 2;
+		inputVoucherMemberText.setLayoutData(inputVoucherMemberTextData);
+		inputVoucherMemberText.setBackground(whiteColor);
+
+		final Button inputVoucherButton = new Button(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherButton.setText("保存");
+		GridData inputVoucherButtonData = new GridData();
+		inputVoucherButtonData.horizontalSpan = 9;
+		inputVoucherButton.setLayoutData(inputVoucherButtonData);
+		
+		Label inputVoucherExportDateLabel = new Label(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherExportDateLabel.setText("录入日期：");
+		inputVoucherExportDateLabel.setBackground(whiteColor);
+
+		final DateTime inputVoucherExportDate = new DateTime(inputVoucherGroup,
+				SWT.DATE | SWT.BORDER);
+		final Button inputVoucherExportButton = new Button(inputVoucherGroup,
+				SWT.NONE);
+		inputVoucherExportButton.setText("导出");
+
+
 		final Composite errorGroup = new Composite(this.parent, SWT.NONE);
 		GridData errorGroupData = new GridData(GridData.HORIZONTAL_ALIGN_FILL
 				| GridData.FILL_VERTICAL);
@@ -900,6 +1074,165 @@ public class SalaryMain implements BackBillingReplyListener {
 			}
 		});
 
+		class InputVoucherHandler {
+			void insertEvent(boolean isCtrl) {
+				Map<String, String> data = new HashMap<String, String>();
+				String wbsFilePath = inputVoucherWbsFile.getText();
+				if (!inputor.isLoadWBS()) {
+					if (wbsFilePath.equals("")) {
+						MessageProvider.getInstance().publicMessage(
+								Message.ERROR, "未选择WBS文件");
+						return;
+					} else {
+						data.put("WBSFile", wbsFilePath);
+					}
+				}
+
+				String inputDate = inputVoucherInputDate.getYear()
+						+ StringUtils.padLeft(
+								(inputVoucherInputDate.getMonth() + 1) + "", 2,
+								"0")
+						+ StringUtils.padLeft(inputVoucherInputDate.getDay()
+								+ "", 2, "0");
+				data.put("InputDate", inputDate);
+
+				String seqence = inputVoucherSeqenceText.getText();
+				if (seqence.equals("")) {
+					MessageProvider.getInstance().publicMessage(Message.ERROR,
+							"序号未填");
+					inputVoucherSeqenceText.setFocus();
+					return;
+				} else {
+					data.put("Seq", seqence);
+				}
+				String code = inputVoucherCodeText.getText();
+				if (code.equals("")) {
+					MessageProvider.getInstance().publicMessage(Message.ERROR,
+							"科目未填");
+					inputVoucherCodeText.setFocus();
+					return;
+				} else {
+					if (code.startsWith("4")) {
+						String wbs = inputVoucherWBSText.getText();
+						if (wbs.equals("")) {
+							MessageProvider.getInstance().publicMessage(
+									Message.ERROR, "WBS未填");
+							inputVoucherWBSText.setFocus();
+							return;
+						} else {
+							data.put("WBS", wbs);
+						}
+					}
+					data.put("Code", code);
+				}
+				String cc = inputVoucherCCText.getText();
+				if (cc.equals("")) {
+					MessageProvider.getInstance().publicMessage(Message.ERROR,
+							"CC未填");
+					inputVoucherCCText.setFocus();
+					return;
+				} else {
+					data.put("CC", cc);
+				}
+				String amount = inputVoucherAmountText.getText();
+				if (amount.equals("")) {
+					MessageProvider.getInstance().publicMessage(Message.ERROR,
+							"金额未填");
+					inputVoucherAmountText.setFocus();
+					return;
+				} else {
+					data.put("Amount", amount);
+				}
+				String ref = inputVoucherRefText.getText();
+				if (!ref.equals("")) {
+					data.put("Ref", ref);
+				}
+				String voucherDate = inputVoucherDate.getYear()
+						+ StringUtils.padLeft((inputVoucherDate.getMonth() + 1)
+								+ "", 2, "0")
+						+ StringUtils.padLeft(inputVoucherDate.getDay() + "",
+								2, "0");
+				data.put("VoucherDate", voucherDate);
+
+				String member = inputVoucherMemberText.getText();
+				if (member.equals("")) {
+					MessageProvider.getInstance().publicMessage(Message.ERROR,
+							"员工未填");
+					inputVoucherMemberText.setFocus();
+					return;
+				} else {
+					data.put("Member", member);
+				}
+				inputor.insertVoucher(data);
+				MessageProvider.getInstance().publicMessage(
+						"保存" + member + "凭证成功, 金额：" + amount);
+
+				inputVoucherAmountText.setText("");
+				inputVoucherCodeText.setText("");
+				inputVoucherWBSText.setText("");
+				inputVoucherCodeText.setFocus();
+				if (isCtrl) {
+					int nextSeq = Integer.valueOf(seqence) + 1;
+					inputVoucherSeqenceText.setText(String.valueOf(nextSeq));
+					inputVoucherMemberText.setText("");
+					inputVoucherRefText.setText("");
+					inputVoucherCCText.setText("");
+					inputVoucherSeqenceText.setFocus();
+					MessageProvider.getInstance().publicMessage(
+							"记录凭证：" + inputor.getVoucherCount() + "条, 总金额："
+									+ inputor.getCurrentAmount());
+				}
+			}
+		}
+
+		final InputVoucherHandler inputVoucherHandler = new InputVoucherHandler();
+		inputVoucherButton.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				inputVoucherHandler.insertEvent(false);
+			}
+		});
+		
+		inputVoucherExportButton.addSelectionListener(new SelectionAdapter(){
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				String voucherExportDate = inputVoucherExportDate.getYear()
+						+ StringUtils.padLeft((inputVoucherExportDate.getMonth() + 1)
+								+ "", 2, "0")
+						+ StringUtils.padLeft(inputVoucherExportDate.getDay() + "",
+								2, "0");
+				String fileName = inputor.export(voucherExportDate);
+				if(fileName != null){
+					FileUtils.popupFilePath("/"
+							+ POIWriter.DEFAULT_FOLDER
+							+ fileName.substring(0,
+									fileName.lastIndexOf("/")));
+				}
+			}
+		});
+
+		inputVoucherMemberText.addKeyListener(new KeyListener() {
+
+			@Override
+			public void keyReleased(KeyEvent e) {
+				boolean isCtrl = false;
+				if (e.stateMask == SWT.CTRL) {
+					isCtrl = true;
+				}
+				if (e.keyCode == SWT.CR) {
+					e.doit = false;
+					inputVoucherHandler.insertEvent(isCtrl);
+				}
+
+			}
+
+			@Override
+			public void keyPressed(KeyEvent arg0) {
+				// TODO Auto-generated method stub
+
+			}
+		});
+
 		salaryToolItem.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
@@ -937,6 +1270,33 @@ public class SalaryMain implements BackBillingReplyListener {
 			public void widgetSelected(SelectionEvent e) {
 				formLayout.topControl = backBillingReplyGroup;
 				formComposite.layout();
+			}
+		});
+
+		inputVoucherItem.addSelectionListener(new SelectionAdapter() {
+			@Override
+			public void widgetSelected(SelectionEvent e) {
+				if (!SQLiteUtils.getInstance().isConnected()) {
+					MessageProvider.getInstance().publicMessage("开始连接库...");
+					try {
+						SQLiteUtils.getInstance().setDBPath(
+								System.getProperty("user.dir")
+										+ "/db/accountvoucher.db");
+						SQLiteUtils.getInstance().connect();
+					} catch (Exception ex) {
+						ex.printStackTrace();
+						SQLiteUtils.getInstance().close();
+						MessageProvider.getInstance().publicMessage(
+								Message.ERROR, "连接数据库失败！");
+						return;
+					}
+					MessageProvider.getInstance().publicMessage("开始连接库成功");
+				}
+				String nextSeq = inputor.getNextSeq();
+				inputVoucherSeqenceText.setText(nextSeq);
+				formLayout.topControl = inputVoucherGroup;
+				formComposite.layout();
+				inputVoucherCodeText.setFocus();
 			}
 		});
 
