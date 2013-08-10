@@ -28,7 +28,6 @@ import jing.util.lang.StringUtils;
 import jing.util.message.Message;
 import jing.util.message.MessageProvider;
 
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StackLayout;
 import org.eclipse.swt.events.KeyEvent;
@@ -1088,92 +1087,98 @@ public class SalaryMain implements BackBillingReplyListener {
 					}
 				}
 
-				String inputDate = inputVoucherInputDate.getYear()
-						+ StringUtils.padLeft(
-								(inputVoucherInputDate.getMonth() + 1) + "", 2,
-								"0")
-						+ StringUtils.padLeft(inputVoucherInputDate.getDay()
-								+ "", 2, "0");
-				data.put("InputDate", inputDate);
-
 				String seqence = inputVoucherSeqenceText.getText();
-				if (seqence.equals("")) {
-					MessageProvider.getInstance().publicMessage(Message.ERROR,
-							"序号未填");
-					inputVoucherSeqenceText.setFocus();
-					return;
-				} else {
-					data.put("Seq", seqence);
-				}
-				String code = inputVoucherCodeText.getText();
-				if (code.equals("")) {
-					MessageProvider.getInstance().publicMessage(Message.ERROR,
-							"科目未填");
-					inputVoucherCodeText.setFocus();
-					return;
-				} else {
-					if (code.startsWith("4")) {
-						String wbs = inputVoucherWBSText.getText();
-						if (wbs.equals("")) {
-							MessageProvider.getInstance().publicMessage(
-									Message.ERROR, "WBS未填");
-							inputVoucherWBSText.setFocus();
-							return;
-						} else {
-							data.put("WBS", wbs);
-						}
-					}
-					data.put("Code", code);
-				}
-				String cc = inputVoucherCCText.getText();
-				if (cc.equals("")) {
-					MessageProvider.getInstance().publicMessage(Message.ERROR,
-							"CC未填");
-					inputVoucherCCText.setFocus();
-					return;
-				} else {
-					data.put("CC", cc);
-				}
-				String amount = inputVoucherAmountText.getText();
-				if (amount.equals("")) {
-					MessageProvider.getInstance().publicMessage(Message.ERROR,
-							"金额未填");
-					inputVoucherAmountText.setFocus();
-					return;
-				} else {
-					data.put("Amount", amount);
-				}
-				String ref = inputVoucherRefText.getText();
-				if (!ref.equals("")) {
-					data.put("Ref", ref);
-				}
-				String voucherDate = inputVoucherDate.getYear()
-						+ StringUtils.padLeft((inputVoucherDate.getMonth() + 1)
-								+ "", 2, "0")
-						+ StringUtils.padLeft(inputVoucherDate.getDay() + "",
-								2, "0");
-				data.put("VoucherDate", voucherDate);
+				boolean isSaveVoucher = false;
+				if(!inputVoucherAmountText.getText().equals("")){
+					String inputDate = inputVoucherInputDate.getYear()
+							+ StringUtils.padLeft(
+									(inputVoucherInputDate.getMonth() + 1) + "", 2,
+									"0")
+							+ StringUtils.padLeft(inputVoucherInputDate.getDay()
+									+ "", 2, "0");
+					data.put("InputDate", inputDate);
 
-				String member = inputVoucherMemberText.getText();
-				if (member.equals("")) {
-					MessageProvider.getInstance().publicMessage(Message.ERROR,
-							"员工未填");
-					inputVoucherMemberText.setFocus();
-					return;
-				} else {
-					data.put("Member", member);
+					if (seqence.equals("")) {
+						MessageProvider.getInstance().publicMessage(Message.ERROR,
+								"序号未填");
+						inputVoucherSeqenceText.setFocus();
+						return;
+					} else {
+						data.put("Seq", seqence);
+					}
+					String code = inputVoucherCodeText.getText();
+					if (code.equals("")) {
+						MessageProvider.getInstance().publicMessage(Message.ERROR,
+								"科目未填");
+						inputVoucherCodeText.setFocus();
+						return;
+					} else {
+						if (code.startsWith("4")) {
+							String wbs = inputVoucherWBSText.getText();
+							if (wbs.equals("")) {
+								MessageProvider.getInstance().publicMessage(
+										Message.ERROR, "WBS未填");
+								inputVoucherWBSText.setFocus();
+								return;
+							} else {
+								data.put("WBS", wbs);
+							}
+						}
+						data.put("Code", code);
+					}
+					String cc = inputVoucherCCText.getText();
+					if (cc.equals("")) {
+						MessageProvider.getInstance().publicMessage(Message.ERROR,
+								"CC未填");
+						inputVoucherCCText.setFocus();
+						return;
+					} else {
+						data.put("CC", cc);
+					}
+					String amount = inputVoucherAmountText.getText();
+					if (amount.equals("")) {
+						MessageProvider.getInstance().publicMessage(Message.ERROR,
+								"金额未填");
+						inputVoucherAmountText.setFocus();
+						return;
+					} else {
+						data.put("Amount", amount);
+					}
+					String ref = inputVoucherRefText.getText();
+					if (!ref.equals("")) {
+						data.put("Ref", ref);
+					}
+					String voucherDate = inputVoucherDate.getYear()
+							+ StringUtils.padLeft((inputVoucherDate.getMonth() + 1)
+									+ "", 2, "0")
+							+ StringUtils.padLeft(inputVoucherDate.getDay() + "",
+									2, "0");
+					data.put("VoucherDate", voucherDate);
+
+					String member = inputVoucherMemberText.getText();
+					if (member.equals("")) {
+						MessageProvider.getInstance().publicMessage(Message.ERROR,
+								"员工未填");
+						inputVoucherMemberText.setFocus();
+						return;
+					} else {
+						data.put("Member", member);
+					}
+					inputor.insertVoucher(data);
+					MessageProvider.getInstance().publicMessage(
+							"保存" + member + "凭证成功, 金额：" + amount);
+					isSaveVoucher = true;
 				}
-				inputor.insertVoucher(data);
-				MessageProvider.getInstance().publicMessage(
-						"保存" + member + "凭证成功, 金额：" + amount);
 
 				inputVoucherAmountText.setText("");
 				inputVoucherCodeText.setText("");
 				inputVoucherWBSText.setText("");
 				inputVoucherCodeText.setFocus();
 				if (isCtrl) {
-					int nextSeq = Integer.valueOf(seqence) + 1;
-					inputVoucherSeqenceText.setText(String.valueOf(nextSeq));
+					if(isSaveVoucher){
+						int nextSeq = Integer.valueOf(seqence) + 1;
+						inputVoucherSeqenceText.setText(String.valueOf(nextSeq));
+					}
 					inputVoucherMemberText.setText("");
 					inputVoucherRefText.setText("");
 					inputVoucherCCText.setText("");
@@ -1181,6 +1186,7 @@ public class SalaryMain implements BackBillingReplyListener {
 					MessageProvider.getInstance().publicMessage(
 							"记录凭证：" + inputor.getVoucherCount() + "条, 总金额："
 									+ inputor.getCurrentAmount());
+					inputor.clearAmount();
 				}
 			}
 		}
@@ -1196,6 +1202,15 @@ public class SalaryMain implements BackBillingReplyListener {
 		inputVoucherExportButton.addSelectionListener(new SelectionAdapter(){
 			@Override
 			public void widgetSelected(SelectionEvent e) {
+				String wbsFilePath = inputVoucherWbsFile.getText();
+				if (!inputor.isLoadWBS()) {
+					if (wbsFilePath.equals("")) {
+						MessageProvider.getInstance().publicMessage(
+								Message.ERROR, "未选择WBS文件");
+						return;
+					}
+				}
+				
 				String voucherExportDate = inputVoucherExportDate.getYear()
 						+ StringUtils.padLeft((inputVoucherExportDate.getMonth() + 1)
 								+ "", 2, "0")

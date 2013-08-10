@@ -16,4 +16,5 @@ public class DBFields {
 	public static final String AMOUNT = "Amount";
 	public static final String CC = "CC";
 	public static final Object WBS = "WBS";
+	public static final Object INPUT_DATE = "InputDate";
 }
