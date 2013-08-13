@@ -2,10 +2,10 @@ package jing.salary.service.impl;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +21,7 @@ import jing.salary.service.WBSLoader;
 import jing.util.db.sqlite.SQLiteUtils;
 import jing.util.excel.POIWriter;
 import jing.util.fields.DBFields;
+import jing.util.lang.StringUtils;
 import jing.util.message.Message;
 import jing.util.message.MessageProvider;
 
@@ -30,6 +31,7 @@ public class InputVoucherImpl {
 	private boolean isLoadWBS = false;
 	private float currentTotal = 0F;
 	private HashMap<String, WBS> wbses = new HashMap<String, WBS>();
+	private HashMap<String, WBS> wbsContractNoMapper = new HashMap<String, WBS>();
 	private static NumberFormat numberFormat = NumberFormat.getNumberInstance();
 
 	private static Map<String, String> documentTypeMap = new HashMap<String, String>();
@@ -51,6 +53,12 @@ public class InputVoucherImpl {
 		if (wbses == null || wbses.size() < 1) {
 			MessageProvider.getInstance().publicMessage(Message.ERROR,
 					"加载WBS文件，但未发现内容");
+		}
+		Collection<WBS> keys = wbses.values();
+		for(WBS w : keys){
+			if(w.getWbsNo().toUpperCase().endsWith("L")) {
+				wbsContractNoMapper.put(w.getContractNo(), w);
+			}
 		}
 		this.isLoadWBS = true;
 	}
@@ -164,7 +172,6 @@ public class InputVoucherImpl {
 		WBS w = null;
 		CostCenter costCenter = null;
 		String voucherDate = null;
-		String inputDate = null;
 		String code = null;
 		String text = null;
 		String ref = null;
@@ -176,7 +183,7 @@ public class InputVoucherImpl {
 		writer.setNextStringData("No.");
 		writer.setNextStringData("Document type");
 		writer.setNextStringData("Document type");
-		writer.setNextStringData("Posting Date");
+		writer.setNextStringData("");
 		writer.setNextStringData("Currency");
 		writer.setNextStringData("Exchange Rate");
 		writer.setNextStringData("Reference (16)");
@@ -194,7 +201,6 @@ public class InputVoucherImpl {
 		writer.setNextStringData("Reason code");
 
 		for (String seq : seqs) {
-			_50TextString = "";
 			group = groups.get(seq);
 			groupCount = 0F;
 			documentTypeCode = null;
@@ -211,8 +217,7 @@ public class InputVoucherImpl {
 				writer.setNextStringData(documentTypeCode);
 
 				voucherDate = item.get(DBFields.VOUCHER_DATE);
-				inputDate = item.get(DBFields.INPUT_DATE);
-				writer.setNextStringData(inputDate);
+				writer.setNextStringData(voucherDate);
 				writer.setNextStringData("");
 				writer.setNextStringData("");
 				writer.setNextStringData("");
@@ -226,24 +231,27 @@ public class InputVoucherImpl {
 				code = item.get(DBFields.CODE);
 				writer.setNextStringData(code);
 				amount = item.get(DBFields.AMOUNT);
-				//writer.setNextStringData(amount);
-				writer.setNextNumbericData(new BigDecimal(amount));
+				writer.setNextStringData(amount);
 				writer.setNextStringData("");
 				writer.setNextStringData("");
 				writer.setNextStringData(cc);
 				writer.setNextStringData("");
 
 				wbs = item.get(DBFields.WBS);
-				writer.setNextStringData(wbs);
-				writer.setNextStringData("");
 
 				if (wbs != null && !"".equals(wbs)) {
 					w = wbses.get(wbs);
-					text = w.getProjectDes();
+					if(w == null){
+						w = wbsContractNoMapper.get(wbs.toUpperCase());
+					}
+					if(w != null){
+						text = w.getProjectDes();
+					}
 				} else {
 					text = voucherDate.substring(0, 4) + "年"
 							+ voucherDate.substring(4, 6) + "月";
 				}
+				writer.setNextStringData(w.getWbsNo());
 				coa = RuntimeData.getInstance().getSOAByCode(code);
 				if (coa != null) {
 					text += coa.getText();
@@ -256,7 +264,7 @@ public class InputVoucherImpl {
 			writer.createRow();
 			writer.setNextStringData(seq);
 			writer.setNextStringData(documentTypeCode);
-			writer.setNextStringData(inputDate);
+			writer.setNextStringData(voucherDate);
 			writer.setNextStringData("");
 			writer.setNextStringData("");
 			writer.setNextStringData("");
@@ -264,8 +272,7 @@ public class InputVoucherImpl {
 			writer.setNextStringData(docHeaderText);
 			writer.setNextStringData("50");
 			writer.setNextStringData(this._50AccountMap.get(costCenter.getPr()));
-			writer.setNextNumbericData(new BigDecimal(groupCount));
-			//writer.setNextStringData("" + groupCount);
+			writer.setNextStringData("" + groupCount);
 			writer.setNextStringData("");
 			writer.setNextStringData("");
 			writer.setNextStringData("");
@@ -283,10 +290,6 @@ public class InputVoucherImpl {
 		List<String> returnFields = new ArrayList<String>();
 		returnFields.add("max(" + DBFields.SEQ + ") as " + DBFields.SEQ);
 		query.put(DBFields.RETURN_FIELDS, returnFields);
-		Map<String, Object> queryCondition = new HashMap<String, Object>();
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-		queryCondition.put("InputDate", dateFormat.format(new Date()));
-		query.put(DBFields.QUERY_CONDITION, queryCondition);
 		try {
 			List<Map<String, String>> returnData = SQLiteUtils.getInstance()
 					.query(query);
@@ -294,9 +297,6 @@ public class InputVoucherImpl {
 				return "1";
 			} else {
 				String nextSeq = returnData.get(0).get(DBFields.SEQ);
-				if(nextSeq == null){
-					return "1";
-				}
 				return (Integer.valueOf(nextSeq) + 1) + "";
 			}
 		} catch (Exception e) {
