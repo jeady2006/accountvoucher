@@ -2,6 +2,7 @@ package jing.salary.service.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import jing.salary.service.WBSLoader;
 import jing.util.db.sqlite.SQLiteUtils;
 import jing.util.excel.POIWriter;
 import jing.util.fields.DBFields;
-import jing.util.lang.StringUtils;
 import jing.util.message.Message;
 import jing.util.message.MessageProvider;
 
@@ -110,17 +110,17 @@ public class InputVoucherImpl {
 					"导出凭证错误：" + e.getMessage());
 			return null;
 		}
-		TreeMap<String, List<Map<String, String>>> groups = null;
+		TreeMap<Integer, List<Map<String, String>>> groups = null;
 		if (result.size() > 1) {
-			groups = new TreeMap<String, List<Map<String, String>>>();
-			String seq = null;
+			groups = new TreeMap<Integer, List<Map<String, String>>>();
+			Integer seq = null;
 			List<Map<String, String>> oneGroup = null;
 			for (Map<String, String> item : result) {
-				seq = item.get(DBFields.SEQ);
+				seq = Integer.valueOf(item.get(DBFields.SEQ));
 				oneGroup = groups.get(seq);
 				if (oneGroup == null) {
 					oneGroup = new ArrayList<Map<String, String>>();
-					groups.put(seq, oneGroup);
+					groups.put(Integer.valueOf(seq), oneGroup);
 				}
 				oneGroup.add(item);
 			}
@@ -160,7 +160,7 @@ public class InputVoucherImpl {
 	}
 
 	private void generateVoucher(
-			TreeMap<String, List<Map<String, String>>> groups, POIWriter writer) {
+			TreeMap<Integer, List<Map<String, String>>> groups, POIWriter writer) {
 		float groupCount = 0F;
 		String wbs = null;
 		String cc = null;
@@ -172,18 +172,19 @@ public class InputVoucherImpl {
 		WBS w = null;
 		CostCenter costCenter = null;
 		String voucherDate = null;
+		String inputDate = null;
 		String code = null;
 		String text = null;
 		String ref = null;
 		SOA coa = null;
-		Set<String> seqs = groups.keySet();
+		Set<Integer> seqs = groups.keySet();
 		List<Map<String, String>> group = null;
 
 		writer.createRow();
 		writer.setNextStringData("No.");
 		writer.setNextStringData("Document type");
 		writer.setNextStringData("Document type");
-		writer.setNextStringData("");
+		writer.setNextStringData("Posting Date");
 		writer.setNextStringData("Currency");
 		writer.setNextStringData("Exchange Rate");
 		writer.setNextStringData("Reference (16)");
@@ -200,13 +201,14 @@ public class InputVoucherImpl {
 		writer.setNextStringData("Text (50)");
 		writer.setNextStringData("Reason code");
 
-		for (String seq : seqs) {
+		for (Integer seq : seqs) {
+			_50TextString = "";
 			group = groups.get(seq);
 			groupCount = 0F;
 			documentTypeCode = null;
 			for (Map<String, String> item : group) {
 				writer.createRow();
-				writer.setNextStringData(seq);
+				writer.setNextStringData(String.valueOf(seq));
 
 				cc = item.get(DBFields.CC);
 				if (documentTypeCode == null) {
@@ -217,7 +219,8 @@ public class InputVoucherImpl {
 				writer.setNextStringData(documentTypeCode);
 
 				voucherDate = item.get(DBFields.VOUCHER_DATE);
-				writer.setNextStringData(voucherDate);
+				inputDate = item.get(DBFields.INPUT_DATE);
+				writer.setNextStringData(inputDate);
 				writer.setNextStringData("");
 				writer.setNextStringData("");
 				writer.setNextStringData("");
@@ -231,14 +234,14 @@ public class InputVoucherImpl {
 				code = item.get(DBFields.CODE);
 				writer.setNextStringData(code);
 				amount = item.get(DBFields.AMOUNT);
-				writer.setNextStringData(amount);
+				//writer.setNextStringData(amount);
+				writer.setNextNumbericData(new BigDecimal(amount));
 				writer.setNextStringData("");
 				writer.setNextStringData("");
 				writer.setNextStringData(cc);
 				writer.setNextStringData("");
 
 				wbs = item.get(DBFields.WBS);
-
 				if (wbs != null && !"".equals(wbs)) {
 					w = wbses.get(wbs);
 					if(w == null){
@@ -247,11 +250,15 @@ public class InputVoucherImpl {
 					if(w != null){
 						text = w.getProjectDes();
 					}
+					writer.setNextStringData(w.getWbsNo());
 				} else {
 					text = voucherDate.substring(0, 4) + "年"
 							+ voucherDate.substring(4, 6) + "月";
+					writer.setNextStringData("");
 				}
-				writer.setNextStringData(w.getWbsNo());
+
+				writer.setNextStringData("");
+				
 				coa = RuntimeData.getInstance().getSOAByCode(code);
 				if (coa != null) {
 					text += coa.getText();
@@ -262,9 +269,9 @@ public class InputVoucherImpl {
 				groupCount += Float.valueOf(amount);
 			}
 			writer.createRow();
-			writer.setNextStringData(seq);
+			writer.setNextStringData(String.valueOf(seq));
 			writer.setNextStringData(documentTypeCode);
-			writer.setNextStringData(voucherDate);
+			writer.setNextStringData(inputDate);
 			writer.setNextStringData("");
 			writer.setNextStringData("");
 			writer.setNextStringData("");
@@ -272,7 +279,8 @@ public class InputVoucherImpl {
 			writer.setNextStringData(docHeaderText);
 			writer.setNextStringData("50");
 			writer.setNextStringData(this._50AccountMap.get(costCenter.getPr()));
-			writer.setNextStringData("" + groupCount);
+			writer.setNextNumbericData(new BigDecimal(groupCount));
+			//writer.setNextStringData("" + groupCount);
 			writer.setNextStringData("");
 			writer.setNextStringData("");
 			writer.setNextStringData("");
@@ -290,6 +298,10 @@ public class InputVoucherImpl {
 		List<String> returnFields = new ArrayList<String>();
 		returnFields.add("max(" + DBFields.SEQ + ") as " + DBFields.SEQ);
 		query.put(DBFields.RETURN_FIELDS, returnFields);
+		Map<String, Object> queryCondition = new HashMap<String, Object>();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		queryCondition.put("InputDate", dateFormat.format(new Date()));
+		query.put(DBFields.QUERY_CONDITION, queryCondition);
 		try {
 			List<Map<String, String>> returnData = SQLiteUtils.getInstance()
 					.query(query);
@@ -297,6 +309,9 @@ public class InputVoucherImpl {
 				return "1";
 			} else {
 				String nextSeq = returnData.get(0).get(DBFields.SEQ);
+				if(nextSeq == null){
+					return "1";
+				}
 				return (Integer.valueOf(nextSeq) + 1) + "";
 			}
 		} catch (Exception e) {
