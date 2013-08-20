@@ -249,8 +249,13 @@ public class InputVoucherImpl {
 					}
 					if(w != null){
 						text = w.getProjectDes();
+						writer.setNextStringData(w.getWbsNo());
+					} else {
+						text = "=="+wbs+"==";
+						writer.setNextStringData("找不到"+wbs+"的wbs或项目描述");
+						MessageProvider.getInstance().publicMessage(
+								Message.ERROR, "根据这个号找不到WBS或项目描述: " + wbs);
 					}
-					writer.setNextStringData(w.getWbsNo());
 				} else {
 					text = voucherDate.substring(0, 4) + "年"
 							+ voucherDate.substring(4, 6) + "月";
